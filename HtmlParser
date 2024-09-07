@@ -1,0 +1,555 @@
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
+import java.io.*;
+import java.text.DecimalFormat;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.TreeMap;
+import java.util.Collections;
+import java.util.Map;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+
+public class HtmlParser {
+
+    public static void main(String[] args) {
+        if (args.length < 1) {
+            System.out.println("Usage: java HtmlParser {mode} {task} {stock} {start} {end}");
+            return;
+        }
+
+        int mode = Integer.parseInt(args[0]);
+
+        if (mode == 0) {
+            int lineCount = getLineCount("data.csv");
+            if (lineCount < 31) {
+                crawlAndAppendToDataCsv(lineCount);
+            }
+        }
+
+        if (mode == 1) {
+            if (args.length < 2) {
+                System.out.println("Usage: java HtmlParser 1 {task}");
+                return;
+            }
+            int task = Integer.parseInt(args[1]);
+            if (task == 0) {
+                outputDataToOutputCsv();
+
+            } else if (task == 1) {
+                if (args.length < 5) {
+                    System.out.println("Usage: java HtmlParser 1 1 {stock} {start} {end}");
+                    return;
+                }
+                String stock = args[2];
+                int start = Integer.parseInt(args[3]);
+                int end = Integer.parseInt(args[4]);
+                calculateMovingAverage(stock, start, end);
+
+            } else if (task == 2) {
+                if (args.length < 5) {
+                    System.out.println("Usage: java HtmlParser 1 2 {stock} {start} {end}");
+                    return;
+                }
+                String stock = args[2];
+                int start = Integer.parseInt(args[3]);
+                int end = Integer.parseInt(args[4]);
+                calculateStandardDeviation(stock, start, end);
+
+            } else if (task == 3) {
+                if (args.length < 5) {
+                    System.out.println("Usage: java HtmlParser 1 3 {stock} {start} {end}");
+                    return;
+                }
+                int start = Integer.parseInt(args[3]);
+                int end = Integer.parseInt(args[4]);
+                calculateTop3StandardDeviations(start, end);
+
+            } else if (task == 4) {
+                if (args.length < 5) {
+                    System.out.println("Usage: java HtmlParser 1 4 {stock} {start} {end}");
+                    return;
+                }
+                String stock = args[2];
+                int start = Integer.parseInt(args[3]);
+                int end = Integer.parseInt(args[4]);
+                calculateRegression(stock, start, end);
+            } else {
+                System.out.println("Invalid task.");
+            }
+        }
+    }
+
+    
+    private static int getLineCount(String filePath) {
+        try {
+            return (int) Files.lines(Paths.get(filePath)).count();
+        } catch (IOException e) {
+            System.out.println("无法读取文件行数，文件可能不存在。");
+            return 0;  // 文件不存在时，假设文件为空，行数为0
+        }
+    }
+
+    private static void crawlAndAppendToDataCsv(int currentLineCount) {
+        try {
+            Document doc = Jsoup.connect("https://pd2-hw3.netdb.csie.ncku.edu.tw/").get();
+            String title = doc.title();
+            String daynumber = title.substring(3);
+            int n = Integer.parseInt(daynumber);
+
+            Elements rows = doc.select("table tr");
+
+            
+
+            if (rows.size() < 2) {
+                System.out.println("网页结构不符合预期，无法获取股票数据。");
+                return;
+            }
+
+            FileWriter writer = new FileWriter("data.csv", true);
+
+            if (!isDataFileNonEmpty()) {
+                Element stockNameRow = rows.get(0);
+                Elements stockNameCols = stockNameRow.select("th");
+                for (int i = 0; i < stockNameCols.size(); i++) {
+                    writer.append(stockNameCols.get(i).text().trim());
+                    if (i < stockNameCols.size() - 1) {
+                        writer.append(",");
+                    }
+                }
+                writer.append("\n");
+            }
+
+            // 获取股票价格行
+        Element stockPriceRow = rows.get(1);
+        Elements stockPriceCols = stockPriceRow.select("td");
+
+        if (isDataFileNonEmpty()) {
+        writer.append("\n");
+        }
+
+        // 写入行数据
+        if (currentLineCount < 31) {
+            for (int i = 0; i < stockPriceCols.size(); i++) {
+                writer.append(stockPriceCols.get(i).text().trim());
+                if (i < stockPriceCols.size() - 1) {
+                    writer.append(",");
+                }
+            }
+        }
+        
+                
+        // 关闭写入器
+        writer.close();
+
+        
+        // 提示用户数据已成功写入data.csv文件
+        System.out.println("第" + title + "天的股票数据已追加到 data.csv 文件中。");
+
+    } catch (IOException e) {
+        // 如果发生异常，打印错误信息
+        e.printStackTrace();
+    }
+    }
+
+    // 检查数据文件是否为空
+    private static boolean isDataFileNonEmpty() {
+        File file = new File("data.csv");
+        return file.exists() && file.length() > 0;
+    }
+
+
+    private static void outputDataToOutputCsv() {
+        System.out.println("Starting outputDataToOutputCsv() method.");
+
+        try {
+            File dataFile = new File("data.csv");
+            if (!dataFile.exists() || dataFile.length() == 0) {
+                System.out.println("No data available for output.");
+                return;
+            }
+            
+            BufferedReader reader = new BufferedReader(new FileReader(dataFile));
+            FileWriter writer = new FileWriter("output.csv");
+
+            String line;
+            boolean isFirstLine = true;
+            while ((line = reader.readLine()) != null) {
+                if (!isFirstLine) {
+                    writer.append("\n");
+                } else {
+                    isFirstLine = false;
+                }
+                writer.append(line);
+            }
+
+            reader.close();
+            writer.close();
+            System.out.println("Data output completed. Results written to output.csv.");
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        System.out.println("Exiting outputDataToOutputCsv() method.");
+    }
+
+    private static void calculateMovingAverage(String stock, int start, int end) {
+    try {
+        BufferedReader reader = new BufferedReader(new FileReader("data.csv"));
+
+        // Read header
+        String header = reader.readLine();
+        if (header == null) {
+            System.out.println("No data available in data.csv.");
+            reader.close();
+            return;
+        }
+        String[] headers = header.split(",");
+
+        // Find column index of the specified stock
+        int stockIndex = -1;
+        for (int i = 0; i < headers.length; i++) {
+            if (headers[i].equals(stock)) {
+                stockIndex = i;
+                break;
+            }
+        }
+
+        if (stockIndex == -1) {
+            System.out.println("Stock " + stock + " not found in data.csv.");
+            reader.close();
+            return;
+        }
+
+        // Check if file is new to avoid unnecessary newlines
+        File outputFile = new File("output.csv");
+        boolean isNewFile = !outputFile.exists() || outputFile.length() == 0;
+
+        FileWriter writer = new FileWriter(outputFile, true);  // Enable append mode
+
+        // Only write a newline if it's not the first line in the file
+        if (!isNewFile) {
+            writer.append("\n");
+        }
+
+        // Write header
+        writer.append(stock + "," + start + "," + end + "\n");
+
+        // Read data and calculate moving average
+        String line;
+        List<Double> prices = new ArrayList<>();
+        while ((line = reader.readLine()) != null) {
+            String[] parts = line.split(",");
+            if (parts.length > stockIndex && parts[stockIndex] != null && !parts[stockIndex].isEmpty()) {
+                double price = Double.parseDouble(parts[stockIndex]);
+                prices.add(price);
+            }
+        }
+
+        DecimalFormat df = new DecimalFormat("#.##");
+
+        // Calculate moving average and write to output file
+        for (int i = start - 1; i <= end - 5; i++) {
+            double sum = 0;
+            for (int j = i; j < i + 5; j++) {
+                sum += prices.get(j);
+            }
+            double movingAverage = sum / 5;
+            //String formattedMovingAverage = formatNumber(movingAverage);
+            writer.append(df.format(movingAverage));
+            //writer.append(formatted);
+            // Check if it's the last value in the line
+            if (i < end - 5) {
+                writer.append(",");
+            }
+        }
+
+        reader.close();
+        writer.close();
+        System.out.println("Moving average calculation completed. Results written to output.csv.");
+
+    } catch (IOException e) {
+        e.printStackTrace();
+    }
+}
+
+
+private static void calculateStandardDeviation(String stock, int start, int end) {
+    try {
+        BufferedReader reader = new BufferedReader(new FileReader("data.csv"));
+        String header = reader.readLine();
+        if (header == null) {
+            System.out.println("No data available in data.csv.");
+            reader.close();
+            return;
+        }
+        String[] headers = header.split(",");
+
+        // Find column index of the specified stock
+        int stockIndex = -1;
+        for (int i = 0; i < headers.length; i++) {
+            if (headers[i].equals(stock)) {
+                stockIndex = i;
+                break;
+            }
+        }
+
+        if (stockIndex == -1) {
+            System.out.println("Stock " + stock + " not found in data.csv.");
+            reader.close();
+            return;
+        }
+
+        List<Double> prices = new ArrayList<>();
+        String line;
+        while ((line = reader.readLine()) != null) {
+            String[] parts = line.split(",");
+            if (parts.length > stockIndex && parts[stockIndex] != null && !parts[stockIndex].isEmpty()) {
+                prices.add(Double.parseDouble(parts[stockIndex]));
+            }
+        }
+        reader.close();
+
+        if (prices.size() < start || prices.size() < end || start > end) {
+            System.out.println("Invalid start or end indices.");
+            return;
+        }
+
+        List<Double> sublist = prices.subList(start - 1, end);
+        double mean = calculateMean(sublist);
+        double sumOfSquaredDeviations = 0;
+        for (double price : sublist) {
+            sumOfSquaredDeviations += Math.pow(price - mean, 2);
+        }
+        double variance = sumOfSquaredDeviations / (sublist.size() - 1);
+        double standardDeviation = Math.sqrt(variance);
+        DecimalFormat df = new DecimalFormat("#.##");
+
+        // Round standard deviation to two decimal places
+        standardDeviation = Math.round(standardDeviation * 100.0) / 100.0;
+        String formattedStandardDeviation = formatNumber(standardDeviation);
+
+        // Append to output file instead of overwriting
+        File outputFile = new File("output.csv");
+        boolean isFirstEntry = !outputFile.exists() || outputFile.length() == 0;
+        FileWriter writer = new FileWriter(outputFile, true);
+        if (!isFirstEntry) {
+            writer.append("\n");
+        }
+        writer.append(stock + "," + start + "," + end + "\n");
+        writer.append(formattedStandardDeviation);
+        writer.close();
+
+        System.out.println("Standard deviation calculation completed. Results appended to output.csv.");
+
+    } catch (IOException e) {
+        e.printStackTrace();
+    }
+}
+
+
+    private static double calculateMean(List<Double> data) {
+        double sum = 0;
+        for (double d : data) {
+            sum += d;
+        }
+        return sum / data.size();
+    }
+
+private static void calculateTop3StandardDeviations(int start, int end) {
+    try {
+        BufferedReader reader = new BufferedReader(new FileReader("data.csv"));
+
+        // Read header
+        String header = reader.readLine();
+        if (header == null) {
+            System.out.println("No data available in data.csv.");
+            reader.close();
+            return;
+        }
+        String[] headers = header.split(",");
+
+        // Map to store standard deviations for each stock
+        TreeMap<Double, String> stdDeviationsMap = new TreeMap<>(Collections.reverseOrder());
+
+        // Find column index of each stock and calculate standard deviation
+        for (int i = 1; i < headers.length; i++) {
+            List<Double> prices = new ArrayList<>();
+            String line;
+            int count = 0;
+            while ((line = reader.readLine()) != null) {
+                count++;
+                if (count >= start && count <= end) {
+                    String[] parts = line.split(",");
+                    if (parts.length > i && parts[i] != null && !parts[i].isEmpty()) {
+                        double price = Double.parseDouble(parts[i]);
+                        prices.add(price);
+                    }
+                }
+            }
+            // Calculate standard deviation
+            double mean = calculateMean(prices);
+            double sumSquaredDiff = 0;
+            for (double price : prices) {
+                sumSquaredDiff += Math.pow(price - mean, 2);
+            }
+            double variance = sumSquaredDiff / (prices.size() - 1);
+            double standardDeviation = Math.sqrt(variance);
+            // Round standard deviation to two decimal places
+            standardDeviation = Math.round(standardDeviation * 100.0) / 100.0;
+            // Store standard deviation with stock symbol
+            stdDeviationsMap.put(Double.parseDouble(formatNumber(standardDeviation)), headers[i]);
+            // Reset reader to beginning of file for next stock
+            reader.close();
+            reader = new BufferedReader(new FileReader("data.csv"));
+            // Skip header line
+            reader.readLine();
+        }
+
+        // Write top 3 standard deviations to output.csv
+        FileWriter writer = new FileWriter("output.csv", true);
+
+        // Check if file is empty
+        File outputFile = new File("output.csv");
+        if (outputFile.length() != 0) {
+            writer.append("\n");
+        }
+
+        boolean firstEntry = true;
+        int count = 0;
+        for (Map.Entry<Double, String> entry : stdDeviationsMap.entrySet()) {
+            if (count >= 3) {
+                break;
+            }
+            if (!firstEntry) {
+                writer.append(",");
+            } else {
+                firstEntry = false;
+            }
+            writer.append(entry.getValue());
+            count++;
+        }
+        writer.append("," + start + "," + end);
+        writer.append("\n");
+        
+        firstEntry = true;
+        count = 0;
+        for (Map.Entry<Double, String> entry : stdDeviationsMap.entrySet()) {
+            if (count >= 3) {
+                break;
+            }
+            if (!firstEntry) {
+                writer.append(",");
+            } else {
+                firstEntry = false;
+            }
+            // Check if the standard deviation needs to be formatted
+            String formattedStandardDeviation = formatNumber(entry.getKey());
+            writer.append(formattedStandardDeviation);
+            count++;
+        }
+        
+        writer.close();
+        System.out.println("Top 3 standard deviations calculated and appended to output.csv.");
+
+    } catch (IOException e) {
+        e.printStackTrace();
+    }
+}
+
+
+
+private static String formatNumber(double number) {
+    DecimalFormat df = new DecimalFormat("0.##");
+    String formattedValue = df.format(number);
+
+    // If the formatted value ends with .00, remove it
+    if (formattedValue.endsWith(".00")) {
+        return formattedValue.substring(0, formattedValue.indexOf('.'));
+    }
+
+    // If the formatted value ends with .0, remove it
+    if (formattedValue.endsWith(".0")) {
+        formattedValue = formattedValue.substring(0, formattedValue.length() - 2);
+    }
+
+    return formattedValue;
+}
+
+private static void calculateRegression(String stock, int start, int end) {
+    try {
+        BufferedReader reader = new BufferedReader(new FileReader("data.csv"));
+        String header = reader.readLine();
+        if (header == null) {
+            System.out.println("No data available in data.csv.");
+            reader.close();
+            return;
+        }
+        String[] headers = header.split(",");
+
+        int stockIndex = -1;
+        for (int i = 0; i < headers.length; i++) {
+            if (headers[i].equals(stock)) {
+                stockIndex = i;
+                break;
+            }
+        }
+
+        if (stockIndex == -1) {
+            System.out.println("Stock " + stock + " not found in data.csv.");
+            reader.close();
+            return;
+        }
+
+        double sumX = 0, sumY = 0, sumXY = 0, sumXSquare = 0;
+        int count = 0;
+        String line;
+        while ((line = reader.readLine()) != null) {
+            count++;
+            if (count >= start && count <= end) {
+                String[] parts = line.split(",");
+                if (parts.length > stockIndex && parts[stockIndex] != null && !parts[stockIndex].isEmpty()) {
+                    double x = count;
+                    double y = Double.parseDouble(parts[stockIndex]);
+                    sumX += x;
+                    sumY += y;
+                    sumXY += x * y;
+                    sumXSquare += x * x;
+                }
+            }
+        }
+        reader.close();
+
+        double n = end - start + 1;
+        double slope = (n * sumXY - sumX * sumY) / (n * sumXSquare - sumX * sumX);
+        double intercept = (sumY - slope * sumX) / n;
+
+        // Round slope and intercept to two decimal places
+        DecimalFormat df = new DecimalFormat("#.##");
+        slope = Double.parseDouble(df.format(slope));
+        intercept = Double.parseDouble(df.format(intercept));
+
+        // Append to output file instead of overwriting
+        File outputFile = new File("output.csv");
+        boolean isFirstEntry = !outputFile.exists() || outputFile.length() == 0;
+        FileWriter writer = new FileWriter(outputFile, true);
+        if (!isFirstEntry) {
+            writer.append("\n");
+        }
+        writer.append(stock + "," + start + "," + end + "\n");
+        writer.append(slope + "," + intercept);
+        writer.close();
+
+        System.out.println("Regression calculation completed. Results appended to output.csv.");
+
+    } catch (IOException e) {
+        e.printStackTrace();
+    }
+}
+
+}
