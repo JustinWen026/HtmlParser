@@ -3,9 +3,7 @@ PD-2 HW3
 
 # Powerful Toolkit in Java: Using HTML Parser to Crawl Internet Data
 
-## 前言
 
-Java是一種擁有強大應用服務支持的編程語言，特別是在互聯網層面上，其相關處理套件非常齊全。例如，Java的 `jsoup` 套件能夠提供我們強大的網路爬蟲工具，使用這些Java套件，我們可以輕鬆實現各種多元應用。這次作業旨在讓同學練習如何使用第三方庫實現網路爬蟲及其後續的數據處理。
 
 ## Homework Requirement
 
@@ -78,10 +76,6 @@ $ java HtmlParser {mode} {task} {stock} {start} {end}
 ---
 
 # README (English Version)
-
-## Introduction
-
-Java is a programming language with extensive support for application services, especially in the context of Internet processing. With the help of Java's powerful libraries like `jsoup`, we can easily implement various applications such as web crawlers. This homework is designed to help students practice using third-party libraries to perform web crawling and subsequent data processing.
 
 ## Homework Requirement
 
